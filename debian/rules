@@ -1,0 +1,56 @@
+#!/usr/bin/make -f
+
+include /usr/share/dpkg/architecture.mk
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+# Upstream's CMakeLists is the ncnn submodule root. dbs-changelog also reads
+# --sourcedirectory to find the tree it derives the package version from, so
+# this is what makes the package version track the submodule's tag (20260526).
+SRCDIR   := ncnn
+BUILDDIR := obj-$(DEB_HOST_MULTIARCH)
+
+# Left undefined, ncnn's CMakeLists stamps NCNN_VERSION with the BUILD date
+# (string(TIMESTAMP "%Y%m%d")), so the library VERSION would drift with every
+# rebuild. Pin it to the upstream part of the package version instead — that is
+# the submodule's release tag by way of dbs-changelog. SOVERSION stays 1
+# (NCNN_VERSION_MAJOR), hence the libncnn1 package name.
+NCNN_VERSION := $(shell dpkg-parsechangelog -SVersion | sed -e 's/^[0-9]*://' | grep -o '^[0-9]\{8\}')
+
+# Tools and examples default to ON in native builds (pulling in protobuf and
+# OpenCV) but OFF when cross-compiling; force them OFF so cross and dbs -n
+# builds produce identical packages. Vulkan is useless on the target Pis.
+# CMake's Release -O3 lands after dpkg-buildflags' -O2 and wins — kept, since
+# inference throughput on the Pi matters.
+CMAKE_FLAGS = \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DCMAKE_INSTALL_INCLUDEDIR=include \
+	-DCMAKE_INSTALL_LIBDIR=lib/$(DEB_HOST_MULTIARCH) \
+	-DNCNN_VERSION=$(NCNN_VERSION) \
+	-DNCNN_SHARED_LIB=ON \
+	-DNCNN_VULKAN=OFF \
+	-DNCNN_OPENMP=ON \
+	-DNCNN_BUILD_TOOLS=OFF \
+	-DNCNN_BUILD_EXAMPLES=OFF \
+	-DNCNN_BUILD_BENCHMARK=OFF \
+	-DNCNN_BUILD_TESTS=OFF \
+	-DNCNN_PYTHON=OFF \
+	$(NULL)
+
+%:
+	dh $@ --buildsystem=cmake+ninja --sourcedirectory=$(SRCDIR) --builddirectory=$(BUILDDIR)
+
+override_dh_auto_configure:
+	@test -n "$(NCNN_VERSION)" || { \
+		echo "rules: cannot derive an 8-digit upstream version from debian/changelog" >&2; exit 1; }
+	dh_auto_configure -- $(CMAKE_FLAGS)
+
+override_dh_missing:
+	dh_missing --fail-missing
+
+# A working tree on a Windows drive (WSL drvfs) is mounted 0777, so the
+# .install files enter the build context executable — and debhelper EXECUTES
+# executable config files instead of reading them. Strip the bit before
+# dh_install looks at them; a no-op on a sane checkout (CI).
+execute_before_dh_install:
+	chmod a-x debian/*.install

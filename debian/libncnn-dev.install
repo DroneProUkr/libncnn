@@ -1,0 +1,4 @@
+usr/include/ncnn
+usr/lib/*/libncnn.so
+usr/lib/*/cmake
+usr/lib/*/pkgconfig

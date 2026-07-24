@@ -1,0 +1,50 @@
+Source: libncnn
+Priority: optional
+Maintainer: special-delivery <development@special-delivery.org>
+Build-Depends:
+ debhelper-compat (= 13),
+# cmake documents the dependency and lands in the cross sysroot; the cmake that
+# actually RUNS is the build-host one. ncnn's floor is 3.10, so every suite's
+# own cmake is new enough — no backports pin needed (unlike libonnxruntime).
+ cmake,
+ ninja-build,
+Standards-Version: 4.6.0
+Section: libs
+Homepage: https://github.com/Tencent/ncnn
+X-Style: black
+
+Package: libncnn1
+Architecture: any
+Multi-Arch: same
+Section: libs
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: high-performance neural network inference framework (shared lib)
+ ncnn is a high-performance neural network inference computing framework
+ optimized for mobile and embedded platforms. It has no third-party runtime
+ dependencies and provides ARM NEON assembly-level optimizations with runtime
+ CPU dispatch, which makes it well suited for on-device inference on
+ Raspberry Pi class hardware.
+ .
+ This package provides the shared library (CPU inference only; the Vulkan GPU
+ path is not built).
+
+Package: libncnn-dev
+Architecture: any
+Multi-Arch: same
+Section: libdevel
+Depends:
+ libncnn1 (= ${binary:Version}),
+ ${misc:Depends},
+Description: high-performance neural network inference framework (dev files)
+ ncnn is a high-performance neural network inference computing framework
+ optimized for mobile and embedded platforms. It has no third-party runtime
+ dependencies and provides ARM NEON assembly-level optimizations with runtime
+ CPU dispatch, which makes it well suited for on-device inference on
+ Raspberry Pi class hardware.
+ .
+ This package provides the headers, CMake package config and pkg-config files
+ for building against libncnn.
